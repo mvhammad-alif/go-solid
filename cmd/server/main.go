@@ -22,7 +22,6 @@ func main() {
 
 	log.Println("HTTP Server starting on :1323")
 	log.Println("Available endpoints:")
-	log.Println("  GET /users/:id - Get user details")
 	log.Println("  GET /sync - Sync posts from external API")
 	log.Println("  GET /items - Get all posts")
 

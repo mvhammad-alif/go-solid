@@ -5,8 +5,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"go-solid/internal/config"
-	"go-solid/internal/database"
 	"go-solid/internal/entity"
 	"go-solid/internal/repository"
 	"go-solid/internal/tools"
@@ -14,7 +12,6 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
-	"github.com/go-redis/redis/v8"
 	_ "github.com/go-sql-driver/mysql"
 )
 
@@ -23,36 +20,11 @@ type Repository struct {
 	redis *tools.RedisClient
 }
 
-func NewRepository(cfg *config.Config) (repository.PostRepository, error) {
-	db, err := sql.Open("mysql", cfg.GetDatabaseDSN())
-	if err != nil {
-		return nil, fmt.Errorf("failed to connect to database: %w", err)
-	}
-
-	if err := db.Ping(); err != nil {
-		return nil, fmt.Errorf("failed to ping database: %w", err)
-	}
-
-	// Initialize Redis client
-	redisClient := redis.NewClient(&redis.Options{
-		Addr:     cfg.GetRedisAddr(),
-	})
-
-	// Test Redis connection
-	if err := redisClient.Ping(context.Background()).Err(); err != nil {
-		return nil, fmt.Errorf("failed to connect to Redis: %w", err)
-	}
-
-	// Run migrations
-	migration := database.NewMigration(db)
-	if err := migration.CreateTables(); err != nil {
-		return nil, fmt.Errorf("failed to run migrations: %w", err)
-	}
-
+func NewRepository(db *sql.DB, redisClient *tools.RedisClient) repository.PostRepository {
 	return &Repository{
 		db:    db,
-		redis: tools.NewRedisClient(redisClient),
-	}, nil
+		redis: redisClient,
+	}
 }
 
 func (r *Repository) GetPosts(ctx context.Context) ([]entity.Post, error) {
@@ -127,14 +99,6 @@ func (r *Repository) CreatePost(ctx context.Context, post *entity.Post) error {
 		return fmt.Errorf("failed to create post: %w", err)
 	}
 
-	return nil
-}
-
-func (r *Repository) TagPost(ctx context.Context, userIDs []int64) error {
-	// For now, this is a placeholder implementation
-	// In a real application, you might want to create a separate table for post tags
-	// or use a many-to-many relationship table
-	time.Sleep(1 * time.Second)
 	return nil
 }
 

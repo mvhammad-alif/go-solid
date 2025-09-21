@@ -15,6 +15,10 @@ import (
 	post2 "go-solid/internal/usecase/post"
 )
 
+import (
+	_ "github.com/go-sql-driver/mysql"
+)
+
 // Injectors from wire.go:
 
 func InitHTTPServer() (*echo.Echo, error) {
@@ -22,10 +26,15 @@ func InitHTTPServer() (*echo.Echo, error) {
 	if err != nil {
 		return nil, err
 	}
-	postRepository, err := post.NewRepository(configConfig)
+	db, err := provideDatabase(configConfig)
 	if err != nil {
 		return nil, err
 	}
+	redisClient, err := provideRedisClient(configConfig)
+	if err != nil {
+		return nil, err
+	}
+	postRepository := post.NewRepository(db, redisClient)
 	postUsecase := post2.NewUsecase(postRepository)
 	postHandler := delivery.NewPostHandler(postUsecase)
 	echoEcho := provideHTTPServer(postHandler)
@@ -37,10 +46,15 @@ func InitCronService() (*tools.CronService, error) {
 	if err != nil {
 		return nil, err
 	}
-	postRepository, err := post.NewRepository(configConfig)
+	db, err := provideDatabase(configConfig)
 	if err != nil {
 		return nil, err
 	}
+	redisClient, err := provideRedisClient(configConfig)
+	if err != nil {
+		return nil, err
+	}
+	postRepository := post.NewRepository(db, redisClient)
 	postUsecase := post2.NewUsecase(postRepository)
 	cronHandler := delivery.NewCronHandler(postUsecase)
 	v := provideCronJobs(cronHandler)

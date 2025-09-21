@@ -1,14 +1,18 @@
 package app
 
 import (
+	"context"
+	"database/sql"
+	"fmt"
+
 	"go-solid/internal/config"
 	"go-solid/internal/delivery"
 	postRepo "go-solid/internal/repository/post"
-	userRepo "go-solid/internal/repository/user"
-	postUC "go-solid/internal/usecase/post"
-	userUC "go-solid/internal/usecase/user"
 	"go-solid/internal/tools"
+	postUC "go-solid/internal/usecase/post"
 
+	"github.com/go-redis/redis/v8"
+	_ "github.com/go-sql-driver/mysql"
 	"github.com/google/wire"
 	"github.com/labstack/echo/v4"
 )
@@ -20,17 +24,16 @@ var (
 	)
 
 	handlerSet = wire.NewSet(
-		delivery.NewUserHandler,
 		delivery.NewPostHandler,
 	)
 
 	usecaseSet = wire.NewSet(
-		userUC.NewUsecase,
 		postUC.NewUsecase,
 	)
 
 	repositorySet = wire.NewSet(
-		userRepo.NewRepository,
+		provideDatabase,
+		provideRedisClient,
 		postRepo.NewRepository,
 	)
 
@@ -68,6 +71,8 @@ var (
 	cronServiceSet = wire.NewSet(
 		cronConfigSet,
 		cronUsecaseSet,
+		provideDatabase,
+		provideRedisClient,
 		cronRepositorySet,
 		cronHandlerSet,
 		cronToolSet,
@@ -80,6 +85,32 @@ func provideHTTPServer(postHandler *delivery.PostHandler) *echo.Echo {
 	e.GET("/sync", postHandler.Sync)
 	e.GET("/items", postHandler.GetItems)
 	return e
+}
+
+func provideDatabase(cfg *config.Config) (*sql.DB, error) {
+	db, err := sql.Open("mysql", cfg.GetDatabaseDSN())
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect to database: %w", err)
+	}
+
+	if err := db.Ping(); err != nil {
+		return nil, fmt.Errorf("failed to ping database: %w", err)
+	}
+
+	return db, nil
+}
+
+func provideRedisClient(cfg *config.Config) (*tools.RedisClient, error) {
+	redisClient := redis.NewClient(&redis.Options{
+		Addr:     cfg.GetRedisAddr(),
+	})
+
+	// Test Redis connection
+	if err := redisClient.Ping(context.Background()).Err(); err != nil {
+		return nil, fmt.Errorf("failed to connect to Redis: %w", err)
+	}
+
+	return tools.NewRedisClient(redisClient), nil
 }
 
 func provideCronJobs(cronHandler *delivery.CronHandler) []tools.CronJob {

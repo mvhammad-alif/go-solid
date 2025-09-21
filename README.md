@@ -46,12 +46,9 @@ make cron
 
 ### 4. Test the Endpoints
 
-#### User Endpoints
-- `GET http://localhost:1323/users/1` - Get user details
-
 #### Post Endpoints
 - `GET http://localhost:1323/sync` - Sync posts from external API
-- `GET http://localhost:1323/items` - Get all posts
+- `GET http://localhost:1323/items` - Get all posts (with Redis caching)
 
 ### 5. Running Both Services
 
@@ -190,9 +187,16 @@ internal/
 ├── delivery/      # HTTP handlers (presentation layer)
 ├── entity/        # Domain entities
 ├── repository/    # Data access layer
-├── tools/         # Utility tools
+├── tools/         # Utility tools (Redis client, cron service)
 └── usecase/       # Business logic layer
 ```
+
+### Key Architectural Changes
+- **Database & Redis Initialization**: Moved to `internal/app/provider.go` for better dependency injection
+- **Repository Constructor**: Now accepts `db` and `redis` parameters instead of creating them internally
+- **User Functionality**: Removed all user-related endpoints and handlers
+- **Redis Caching**: Implemented in repository layer with 1-minute TTL
+- **Clean Separation**: Repository handles data access, usecase handles business logic
 
 ## External API Resilience
 
