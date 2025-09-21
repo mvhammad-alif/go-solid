@@ -2,7 +2,7 @@ package app
 
 import (
 	"go-solid/internal/config"
-	http "go-solid/internal/delivery"
+	"go-solid/internal/delivery"
 	postRepo "go-solid/internal/repository/post"
 	userRepo "go-solid/internal/repository/user"
 	postUC "go-solid/internal/usecase/post"
@@ -20,8 +20,8 @@ var (
 	)
 
 	handlerSet = wire.NewSet(
-		http.NewUserHandler,
-		http.NewPostHandler,
+		delivery.NewUserHandler,
+		delivery.NewPostHandler,
 	)
 
 	usecaseSet = wire.NewSet(
@@ -57,6 +57,10 @@ var (
 		postRepo.NewRepository,
 	)
 
+	cronHandlerSet = wire.NewSet(
+		delivery.NewCronHandler,
+	)
+
 	cronToolSet = wire.NewSet(
 		tools.NewCronService,
 	)
@@ -65,13 +69,25 @@ var (
 		cronConfigSet,
 		cronUsecaseSet,
 		cronRepositorySet,
+		cronHandlerSet,
 		cronToolSet,
+		provideCronJobs,
 	)
 )
 
-func provideHTTPServer(postHandler *http.PostHandler) *echo.Echo {
+func provideHTTPServer(postHandler *delivery.PostHandler) *echo.Echo {
 	e := echo.New()
 	e.GET("/sync", postHandler.Sync)
 	e.GET("/items", postHandler.GetItems)
 	return e
+}
+
+func provideCronJobs(cronHandler *delivery.CronHandler) []tools.CronJob {
+	return []tools.CronJob{
+		{
+			Name:     "sync_posts",
+			Schedule: "*/15 * * * *", // Every 15 minutes
+			Job:      cronHandler.SyncPostsJob,
+		},
+	}
 }

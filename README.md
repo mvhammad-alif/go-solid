@@ -6,7 +6,7 @@ Go project skeleton using clean architecture.<br/>We use [echo](https://github.c
 
 - Clean Architecture with proper separation of concerns
 - MySQL database with migration support
-- Redis for caching (ready for implementation)
+- **Redis caching with 1-minute TTL** for improved performance
 - Configuration management with Viper
 - Dependency injection with Wire
 - Docker support for MySQL and Redis
@@ -153,6 +153,33 @@ The application automatically creates the necessary tables on startup:
 - `posts` - Stores post data with fields: id, user_id, title, body, timestamps
 - `users` - Stores user data with fields: id, name, email, timestamps
 
+## Redis Caching
+
+The application implements intelligent caching for improved performance:
+
+### Caching Strategy
+- **Cache First**: Check Redis cache before hitting the database
+- **Cache Miss**: Fetch from MySQL and store result in Redis
+- **TTL**: 1-minute expiration time for cached data
+- **Cache Key**: `posts:all` for the main posts listing
+
+### Architecture
+- **Tools Layer** (`internal/tools/redis.go`): Redis client wrapper with clean methods
+- **Repository Layer** (`internal/repository/post/post.go`): Implements caching logic using Redis tools
+- **Usecase Layer** (`internal/usecase/post/post.go`): Calls repository with caching enabled
+
+### Redis Methods Available
+- `Fetch(ctx, key)` - Get data from Redis
+- `Store(ctx, key, value, expiration)` - Store data in Redis with TTL
+- `Delete(ctx, key)` - Remove data from Redis
+- `Exists(ctx, key)` - Check if key exists in Redis
+
+### Performance Benefits
+- **Reduced Database Load**: Frequent requests served from Redis
+- **Faster Response Times**: In-memory Redis operations are much faster than MySQL queries
+- **Automatic Expiration**: Stale data is automatically cleaned up after 1 minute
+- **Fallback Strategy**: If Redis is unavailable, falls back to direct database queries
+
 ## Project Structure
 
 ```
@@ -194,9 +221,15 @@ The `SyncPosts` functionality includes robust error handling and retry logic:
 
 The application includes a built-in cron service that runs scheduled tasks:
 
+### Architecture
+- **Delivery Layer**: Contains `CronHandler` with job logic (moved from tools layer)
+- **Provider Layer**: Defines cron jobs and their schedules in `internal/app/provider.go`
+- **Tools Layer**: Generic `CronService` that executes scheduled jobs
+- **Dependency Injection**: Jobs are wired together using Google's Wire
+
 ### Scheduled Jobs
 - **Sync Posts**: Runs every 15 minutes to fetch new posts from the external API
-- **Configurable**: Easy to add more scheduled jobs by modifying the cron service
+- **Configurable**: Easy to add more scheduled jobs by modifying `provideCronJobs()` in provider.go
 
 ### Running the Cron Service
 ```bash
@@ -205,6 +238,7 @@ go run cmd/cron/main.go
 ```
 
 ### Cron Service Features
+- **Clean Architecture**: Proper separation of concerns with jobs defined in delivery layer
 - **Graceful startup and shutdown**: Properly handles signals for clean termination
 - **Detailed logging**: Logs all cron job executions with timestamps and status
 - **Error handling**: Continues running even if individual jobs fail
@@ -216,3 +250,23 @@ go run cmd/cron/main.go
 - **Timeout**: 10 minutes per execution
 - **Logging**: All executions are logged with success/failure status
 - **Error recovery**: Failed jobs don't stop the service
+
+### Adding New Cron Jobs
+To add a new cron job, modify the `provideCronJobs()` function in `internal/app/provider.go`:
+
+```go
+func provideCronJobs(cronHandler *delivery.CronHandler) []tools.CronJob {
+    return []tools.CronJob{
+        {
+            Name:     "sync_posts",
+            Schedule: "*/15 * * * *", // Every 15 minutes
+            Job:      cronHandler.SyncPostsJob,
+        },
+        {
+            Name:     "new_job",
+            Schedule: "0 2 * * *", // Daily at 2 AM
+            Job:      cronHandler.NewJob,
+        },
+    }
+}
+```

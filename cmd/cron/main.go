@@ -10,21 +10,17 @@ import (
 )
 
 func main() {
-	// Initialize only the cron service
+	// Initialize the cron service with jobs
 	cronService, err := app.InitCronService()
 	if err != nil {
 		panic(err)
 	}
 
-	// Start the cron service
+	// Start the cron service (jobs are already configured in provider)
 	if err := cronService.Start(); err != nil {
 		log.Printf("Failed to start cron service: %v", err)
 		panic(err)
 	}
-
-	log.Println("Cron service starting...")
-	log.Println("Scheduled jobs:")
-	log.Println("  - Sync posts: every 15 minutes")
 
 	// Wait for interrupt signal to gracefully shutdown
 	quit := make(chan os.Signal, 1)

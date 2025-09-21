@@ -27,7 +27,7 @@ func InitHTTPServer() (*echo.Echo, error) {
 		return nil, err
 	}
 	postUsecase := post2.NewUsecase(postRepository)
-	postHandler := http.NewPostHandler(postUsecase)
+	postHandler := delivery.NewPostHandler(postUsecase)
 	echoEcho := provideHTTPServer(postHandler)
 	return echoEcho, nil
 }
@@ -42,6 +42,8 @@ func InitCronService() (*tools.CronService, error) {
 		return nil, err
 	}
 	postUsecase := post2.NewUsecase(postRepository)
-	cronService := tools.NewCronService(postUsecase)
+	cronHandler := delivery.NewCronHandler(postUsecase)
+	v := provideCronJobs(cronHandler)
+	cronService := tools.NewCronService(v)
 	return cronService, nil
 }

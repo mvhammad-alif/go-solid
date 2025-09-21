@@ -35,5 +35,5 @@ func (u *Usecase) SyncPosts(ctx context.Context) error {
 }
 
 func (u *Usecase) GetItems(ctx context.Context) ([]entity.Post, error) {
-	return u.repo.GetPosts(ctx)
+	return u.repo.GetPostsWithCache(ctx)
 }

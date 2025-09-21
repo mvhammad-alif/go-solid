@@ -9,15 +9,18 @@ import (
 	"go-solid/internal/database"
 	"go-solid/internal/entity"
 	"go-solid/internal/repository"
+	"go-solid/internal/tools"
 	"net/http"
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
+	"github.com/go-redis/redis/v8"
 	_ "github.com/go-sql-driver/mysql"
 )
 
 type Repository struct {
-	db *sql.DB
+	db    *sql.DB
+	redis *tools.RedisClient
 }
 
 func NewRepository(cfg *config.Config) (repository.PostRepository, error) {
@@ -30,13 +33,26 @@ func NewRepository(cfg *config.Config) (repository.PostRepository, error) {
 		return nil, fmt.Errorf("failed to ping database: %w", err)
 	}
 
+	// Initialize Redis client
+	redisClient := redis.NewClient(&redis.Options{
+		Addr:     cfg.GetRedisAddr(),
+	})
+
+	// Test Redis connection
+	if err := redisClient.Ping(context.Background()).Err(); err != nil {
+		return nil, fmt.Errorf("failed to connect to Redis: %w", err)
+	}
+
 	// Run migrations
 	migration := database.NewMigration(db)
 	if err := migration.CreateTables(); err != nil {
 		return nil, fmt.Errorf("failed to run migrations: %w", err)
 	}
 
-	return &Repository{db: db}, nil
+	return &Repository{
+		db:    db,
+		redis: tools.NewRedisClient(redisClient),
+	}, nil
 }
 
 func (r *Repository) GetPosts(ctx context.Context) ([]entity.Post, error) {
@@ -64,6 +80,40 @@ func (r *Repository) GetPosts(ctx context.Context) ([]entity.Post, error) {
 
 	return posts, nil
 }
+
+func (r *Repository) GetPostsWithCache(ctx context.Context) ([]entity.Post, error) {
+	// Redis cache key
+	cacheKey := "posts:all"
+
+	// Try to get from Redis first
+	cachedPosts, err := r.redis.Fetch(ctx, cacheKey)
+	if err == nil {
+		// Cache hit - decode JSON and return
+		var posts []entity.Post
+		if err := json.Unmarshal([]byte(cachedPosts), &posts); err == nil {
+			return posts, nil
+		}
+		// If JSON decode fails, continue to database
+	}
+
+	// Cache miss or decode error - get from database
+	posts, err := r.GetPosts(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// Store in Redis with 1-minute TTL
+	if len(posts) > 0 {
+		postsJSON, err := json.Marshal(posts)
+		if err == nil {
+			r.redis.Store(ctx, cacheKey, string(postsJSON), 1*time.Minute)
+		}
+	}
+
+	return posts, nil
+}
+
+
 
 func (r *Repository) CreatePost(ctx context.Context, post *entity.Post) error {
 	query := "INSERT INTO posts (id, user_id, title, body) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE title = ?, body = ?"
