@@ -11,6 +11,7 @@ import (
 	"go-solid/internal/config"
 	"go-solid/internal/delivery"
 	"go-solid/internal/repository/post"
+	"go-solid/internal/tools"
 	post2 "go-solid/internal/usecase/post"
 )
 
@@ -29,4 +30,18 @@ func InitHTTPServer() (*echo.Echo, error) {
 	postHandler := http.NewPostHandler(postUsecase)
 	echoEcho := provideHTTPServer(postHandler)
 	return echoEcho, nil
+}
+
+func InitCronService() (*tools.CronService, error) {
+	configConfig, err := config.Load()
+	if err != nil {
+		return nil, err
+	}
+	postRepository, err := post.NewRepository(configConfig)
+	if err != nil {
+		return nil, err
+	}
+	postUsecase := post2.NewUsecase(postRepository)
+	cronService := tools.NewCronService(postUsecase)
+	return cronService, nil
 }

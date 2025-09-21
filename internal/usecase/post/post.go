@@ -16,7 +16,22 @@ func NewUsecase(repo repository.PostRepository) usecase.PostUsecase {
 }
 
 func (u *Usecase) SyncPosts(ctx context.Context) error {
-	return u.repo.SyncPosts(ctx)
+	// Fetch posts from external API
+	posts, err := u.repo.FetchPostsFromAPI(ctx)
+	if err != nil {
+		return err
+	}
+
+	// Process and store the fetched posts
+	for _, post := range posts {
+		if err := u.repo.CreatePost(ctx, &post); err != nil {
+			// Continue with other posts even if one fails
+			// Log the error but don't fail the entire sync
+			continue
+		}
+	}
+
+	return nil
 }
 
 func (u *Usecase) GetItems(ctx context.Context) ([]entity.Post, error) {

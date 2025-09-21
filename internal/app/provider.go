@@ -7,11 +7,13 @@ import (
 	userRepo "go-solid/internal/repository/user"
 	postUC "go-solid/internal/usecase/post"
 	userUC "go-solid/internal/usecase/user"
+	"go-solid/internal/tools"
 
 	"github.com/google/wire"
 	"github.com/labstack/echo/v4"
 )
 
+// HTTP Server dependencies
 var (
 	configSet = wire.NewSet(
 		config.Load,
@@ -32,13 +34,38 @@ var (
 		postRepo.NewRepository,
 	)
 
-	allSet = wire.NewSet(
+	httpServerSet = wire.NewSet(
 		configSet,
 		handlerSet,
 		usecaseSet,
 		repositorySet,
-
 		provideHTTPServer,
+	)
+)
+
+// Cron service dependencies
+var (
+	cronConfigSet = wire.NewSet(
+		config.Load,
+	)
+
+	cronUsecaseSet = wire.NewSet(
+		postUC.NewUsecase,
+	)
+
+	cronRepositorySet = wire.NewSet(
+		postRepo.NewRepository,
+	)
+
+	cronToolSet = wire.NewSet(
+		tools.NewCronService,
+	)
+
+	cronServiceSet = wire.NewSet(
+		cronConfigSet,
+		cronUsecaseSet,
+		cronRepositorySet,
+		cronToolSet,
 	)
 )
 
