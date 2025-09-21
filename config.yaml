@@ -1,0 +1,10 @@
+database:
+  host: "localhost"
+  port: 3306
+  user: "go_solid_user"
+  password: "go_solid_pass"
+  database: "go_solid"
+
+redis:
+  host: "localhost"
+  port: 6379

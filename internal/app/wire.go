@@ -8,7 +8,7 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-func InitHTTPServer() *echo.Echo {
+func InitHTTPServer() (*echo.Echo, error) {
 	wire.Build(allSet)
-	return &echo.Echo{}
+	return &echo.Echo{}, nil
 }

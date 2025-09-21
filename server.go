@@ -5,6 +5,10 @@ import (
 )
 
 func main() {
-	e := app.InitHTTPServer()
+	e, err := app.InitHTTPServer()
+	if (err != nil) {
+		panic(err)
+	}
+
 	e.Logger.Fatal(e.Start(":1323"))
 }

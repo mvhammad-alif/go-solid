@@ -8,17 +8,25 @@ package app
 
 import (
 	"github.com/labstack/echo/v4"
-	"go-solid/internal/delivery/http"
-	"go-solid/internal/repository/user"
-	user2 "go-solid/internal/usecase/user"
+	"go-solid/internal/config"
+	"go-solid/internal/delivery"
+	"go-solid/internal/repository/post"
+	post2 "go-solid/internal/usecase/post"
 )
 
 // Injectors from wire.go:
 
-func InitHTTPServer() *echo.Echo {
-	userRepository := user.NewRepository()
-	userUsecase := user2.NewUsecase(userRepository)
-	userHandler := http.NewUserHandler(userUsecase)
-	echoEcho := provideHTTPServer(userHandler)
-	return echoEcho
+func InitHTTPServer() (*echo.Echo, error) {
+	configConfig, err := config.Load()
+	if err != nil {
+		return nil, err
+	}
+	postRepository, err := post.NewRepository(configConfig)
+	if err != nil {
+		return nil, err
+	}
+	postUsecase := post2.NewUsecase(postRepository)
+	postHandler := http.NewPostHandler(postUsecase)
+	echoEcho := provideHTTPServer(postHandler)
+	return echoEcho, nil
 }
